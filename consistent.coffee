@@ -23,20 +23,61 @@ _ = require 'underscore'
   - Sorted set: A set of values associated with a score.
 ###
 
-dominates = (a, b)->
-  oneGt = false
+class TagClock
+  constructor: (other)->
+    @_entries = {}
 
-  for k of b
-    if (a[k] ? 0) < b[k]
-      return false
-    else if (a[k] ? 0) > b[k]
-      oneGt = true
-
-  for k of a
-    if a[k] and not b[k]
-      return true
+    if other
+      for entry in other
+        @_entries[entry] = true
   
-  oneGt
+  add: ->
+    @_entries[Math.random()] = true
+
+  dominates: (other)->
+    for entry of other._entries
+      if not @_entries[entry]
+        return false
+
+    true
+
+  merge: (other)->
+    for k of other._entries
+      @_entries[k] = true
+
+  copy: ->
+    new TagClock Object.keys @_entries
+
+  inspect: ->
+    'TagClock([' + Object.keys(@_entries).sort().join(', ') + '])'
+
+class VectorClock
+  constructor: (self, other)->
+    @_self    = self
+    @_entries = {}
+
+    if other
+      for key, value of other
+        @_entries[key] = value
+
+  add: ->
+    @_entries[@_self] = (@_entries[@_self] ? 0) + 1
+
+  dominates: (other)->
+    for k, b of other._entries
+      a = @_entries[k] ? 0
+
+      if a < b
+        return false
+
+    return true
+  
+  merge: (other)->
+    for k, b of other._entries
+      @_entries[k] = Math.max b, (@_entries[k] ? 0)
+  
+  copy: ->
+    new VectorClock @_self, @_entries
 
 class Consistent
   constructor: (peer)->
@@ -52,12 +93,65 @@ class Consistent
 
   events: -> @_events
 
+# Creates a uniformly distributed number in the interval (0, 1)
 openRandom = ->
   while true
     n = Math.random()
 
     if n isnt 0
       return n
+
+class Register extends Consistent
+  constructor: (peer)->
+    super peer
+    @_items = []
+
+  set: (value)->
+    newClock = new TagClock()
+
+    for item in @_items
+      newClock.merge item.clock
+
+    newClock.add()
+
+    @applyEvent
+      command: 'set'
+      clock:   newClock
+      value:   value
+
+  _set: (e)->
+    if @_items.length is 0
+      @_items.push
+        value: e.value
+        clock: e.clock
+      return
+
+    keep    = []
+    keepNew = true
+
+    for item in @_items
+      console.log 'checking', e.clock, 'against', item.clock
+      console.log ' 1st dominates 2nd?', e.clock.dominates item.clock
+      console.log ' 2nd dominates 1st?', item.clock.dominates e.clock
+
+      if item.clock.dominates e.clock
+        keep.push item
+
+      if item.clock.dominates e.clock
+        keepNew = false
+
+    if keepNew
+      keep.push
+        value: e.value
+        clock: e.clock
+
+    console.log 'keeping', keep
+
+    @_items = keep
+
+  gets: ->
+    console.log 'items', @_items
+    item.value for item in @_items
 
 class List extends Consistent
   constructor: (peer)->
@@ -124,55 +218,6 @@ class List extends Consistent
         @_items.splice index, 1
 
   items: ->
-    item.value for item in @_items
-
-class Register extends Consistent
-  constructor: (peer)->
-    super peer
-    @_items = []
-
-  set: (value)->
-    newClock = {}
-
-    for item in @_items
-      for peer, count of item.clock
-        if not newClock[peer]? or newClock[peer] < item.clock[peer]
-          newClock[peer] = item.clock[peer]
-
-    newClock[@_peer] = (newClock[@_peer] ? 0) + 1
-
-    @applyEvent
-      command: 'set'
-      clock:   newClock
-      value:   value
-
-  _set: (e)->
-    if @_items.length is 0
-      @_items.push
-        value: e.value
-        clock: e.clock
-      return
-
-    keep        = []
-    undominated = true
-
-    console.log 'adding', e, 'to', @_items
-
-    for item in @_items
-      if not dominates e.clock, item.clock
-        keep.push item
-
-      if not dominates item.clock, e.clock
-        undominated = true
-
-    if undominated
-      keep.push
-        value: e.value
-        clock: e.clock
-
-    @_items = keep
-
-  gets: ->
     item.value for item in @_items
 
 class Set extends Consistent
@@ -296,9 +341,11 @@ class SortedSet extends Consistent
 
     @_items = keep
 
-exports.Register  = Register
-exports.List      = List
-exports.Set       = Set
-exports.Hash      = Hash
-exports.SortedSet = SortedSet
+exports.TagClock    = TagClock
+exports.VectorClock = VectorClock
+exports.Register    = Register
+exports.List        = List
+exports.Set         = Set
+exports.Hash        = Hash
+exports.SortedSet   = SortedSet
 
