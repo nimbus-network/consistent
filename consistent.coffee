@@ -1,4 +1,4 @@
-_ = require 'underscore'
+_ = window._ ? require 'underscore'
 
 ###
  This library implements consistent objects in JS.  Operations on these
@@ -22,6 +22,8 @@ _ = require 'underscore'
   - Hash:       A map between keys and values, supporting set and delete.
   - Sorted set: A set of values associated with a score.
 ###
+
+# TODO: Implement squash.
 
 class TagClock
   constructor: (other)->
@@ -107,7 +109,7 @@ class Register extends Consistent
     @_items = []
 
   set: (value)->
-    newClock = new TagClock()
+    newClock = new TagClock() # TODO: Change this to a VectorClock
 
     for item in @_items
       newClock.merge item.clock
@@ -203,17 +205,19 @@ class List extends Consistent
       @_items.splice index, 0, item
 
   _remove: (e)->
-    if not @_removed[rank]?
-      @_removed[rank] = true
+    if @_removed[e.rank]?
+      return
 
-      item =
-        peer: e.peer
-        rank: e.rank
+    @_removed[e.rank] = true
 
-      index = _.sortedIndex @_items, item, 'rank'
+    item =
+      peer: e.peer
+      rank: e.rank
 
-      if @_items[index] and @_items[index].rank is e.rank
-        @_items.splice index, 1
+    index = _.sortedIndex @_items, item, 'rank'
+
+    if @_items[index] and @_items[index].rank is e.rank
+      @_items.splice index, 1
 
   items: ->
     item.value for item in @_items
@@ -339,11 +343,16 @@ class SortedSet extends Consistent
 
     @_items = keep
 
-exports.TagClock    = TagClock
-exports.VectorClock = VectorClock
-exports.Register    = Register
-exports.List        = List
-exports.Set         = Set
-exports.Hash        = Hash
-exports.SortedSet   = SortedSet
+if exports?
+  root = exports
+else
+  root = window
+
+root.TagClock    = TagClock
+root.VectorClock = VectorClock
+root.Register    = Register
+root.List        = List
+root.Set         = Set
+root.Hash        = Hash
+root.SortedSet   = SortedSet
 
