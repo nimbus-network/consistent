@@ -133,20 +133,11 @@ class Register extends Consistent
       homeDominates  = item.clock.dominates e.clock
       guestDominates = e.clock.dominates item.clock
 
-      #if not guestDominates
-      #  keep.push item
-      #
-      #if homeDominates and not guestDominates
-      #  keepNew = true
+      if not guestDominates
+        keep.push item
 
-      if homeDominates and guestDominates
+      if not homeDominates or guestDominates
         keepNew = true
-      else
-        if not guestDominates
-          keep.push item
-      
-        if not homeDominates
-          keepNew = true
 
     if keepNew
       keep.push
@@ -159,8 +150,6 @@ class Register extends Consistent
     items = (item.value for item in @_items)
 
     items.sort()
-
-    items
 
 class List extends Consistent
   constructor: (peer)->
