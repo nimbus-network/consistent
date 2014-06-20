@@ -73,6 +73,10 @@ describe 'Consistent', ->
       x.applyEvents y.events()
       assert.deepEqual x.gets(), ['a', 'b']
 
-      y.applyEvents y.events()
-      assert.deepEqual y.gets(), ['b', 'a']
+      y.applyEvents x.events()
+      assert.deepEqual y.gets(), ['a', 'b']
+
+      y.set 'c'
+      y.applyEvents x.events()
+      assert.deepEqual y.gets(), ['c']
 

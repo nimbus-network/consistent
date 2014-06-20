@@ -127,31 +127,40 @@ class Register extends Consistent
       return
 
     keep    = []
-    keepNew = true
+    keepNew = false
 
     for item in @_items
-      console.log 'checking', e.clock, 'against', item.clock
-      console.log ' 1st dominates 2nd?', e.clock.dominates item.clock
-      console.log ' 2nd dominates 1st?', item.clock.dominates e.clock
+      homeDominates  = item.clock.dominates e.clock
+      guestDominates = e.clock.dominates item.clock
 
-      if item.clock.dominates e.clock
-        keep.push item
+      #if not guestDominates
+      #  keep.push item
+      #
+      #if homeDominates and not guestDominates
+      #  keepNew = true
 
-      if item.clock.dominates e.clock
-        keepNew = false
+      if homeDominates and guestDominates
+        keepNew = true
+      else
+        if not guestDominates
+          keep.push item
+      
+        if not homeDominates
+          keepNew = true
 
     if keepNew
       keep.push
         value: e.value
         clock: e.clock
 
-    console.log 'keeping', keep
-
     @_items = keep
 
   gets: ->
-    console.log 'items', @_items
-    item.value for item in @_items
+    items = (item.value for item in @_items)
+
+    items.sort()
+
+    items
 
 class List extends Consistent
   constructor: (peer)->
