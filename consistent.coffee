@@ -1,4 +1,4 @@
-_ = window._ ? require 'underscore'
+_ = if require? then require 'underscore' else window._
 
 ###
  This library implements consistent objects in JS.  Operations on these
